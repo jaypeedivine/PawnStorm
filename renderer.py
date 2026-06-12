@@ -10,25 +10,44 @@ from config import (L, F, THEMES, C_WHITE, C_BG, C_PANEL, C_TOP,
 import pieces
 
 def draw_eval_bar(game, screen):
-    x, y, w, h = 0, L.TOP_H, L.EVAL_W, L.BOARD_PX
-    pygame.draw.rect(screen, (30,30,30), (x, y, w, h))
     pct = game.coach.get_eval_pct()
     if game.flipped:
         pct = 1.0 - pct
-    w_h = int(h * pct)
-    b_h = h - w_h
-    pygame.draw.rect(screen, (50,50,55), (x+1, y, w-2, b_h))
-    pygame.draw.rect(screen, (220,220,215), (x+1, y+b_h, w-2, w_h))
-    if game.coach.eval_history:
-        ev = game.coach.eval_history[-1] / 100.0
-        if abs(ev) > 90:
-            s = "M" if ev > 0 else "-M"
-        else:
-            s = f"{ev:+.1f}"
-        col = (30,30,30) if pct > 0.5 else (200,200,200)
-        ey = max(y+1, min(y+h-14, y+b_h + (-12 if pct > 0.5 else 2)))
-        t = F.FONT_XS.render(s, True, col)
-        screen.blit(t, (x + (w - t.get_width())//2, ey))
+    if L.IS_MOBILE:
+        bar_h = 6
+        bar_y = L.TOP_H - bar_h
+        bar_x = L.BX
+        bar_w = L.BOARD_PX
+        pygame.draw.rect(screen, (30, 30, 30), (bar_x, bar_y, bar_w, bar_h))
+        w_w = int(bar_w * pct)
+        pygame.draw.rect(screen, (220, 220, 215), (bar_x, bar_y, w_w, bar_h))
+        pygame.draw.rect(screen, (50, 50, 55), (bar_x + w_w, bar_y, bar_w - w_w, bar_h))
+        if game.coach.eval_history:
+            ev = game.coach.eval_history[-1] / 100.0
+            if abs(ev) > 90:
+                s = "M" if ev > 0 else "-M"
+            else:
+                s = f"{ev:+.1f}"
+            col = (220, 220, 215) if pct > 0.5 else (150, 150, 155)
+            t = F.FONT_XS.render(s, True, col)
+            screen.blit(t, (bar_x + bar_w - t.get_width() - 4, bar_y - 13))
+    else:
+        x, y, w, h = 0, L.TOP_H, L.EVAL_W, L.BOARD_PX
+        pygame.draw.rect(screen, (30,30,30), (x, y, w, h))
+        w_h = int(h * pct)
+        b_h = h - w_h
+        pygame.draw.rect(screen, (50,50,55), (x+1, y, w-2, b_h))
+        pygame.draw.rect(screen, (220,220,215), (x+1, y+b_h, w-2, w_h))
+        if game.coach.eval_history:
+            ev = game.coach.eval_history[-1] / 100.0
+            if abs(ev) > 90:
+                s = "M" if ev > 0 else "-M"
+            else:
+                s = f"{ev:+.1f}"
+            col = (30,30,30) if pct > 0.5 else (200,200,200)
+            ey = max(y+1, min(y+h-14, y+b_h + (-12 if pct > 0.5 else 2)))
+            t = F.FONT_XS.render(s, True, col)
+            screen.blit(t, (x + (w - t.get_width())//2, ey))
 
 def draw_board(game, screen):
     light, dark = THEMES[game.theme_name]
