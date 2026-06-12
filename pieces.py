@@ -1,8 +1,12 @@
 import os
+import sys
 import pygame
 import chess
 
-FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fonts')
+if getattr(sys, 'frozen', False):
+    FONT_DIR = os.path.join(sys._MEIPASS, 'fonts')
+else:
+    FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fonts')
 
 PIECE_CHARS = {
     (chess.KING, True): '\u2654', (chess.QUEEN, True): '\u2655',

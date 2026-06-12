@@ -1,11 +1,16 @@
 import os
+import sys
 import pygame
 
 os.environ.setdefault('SDL_ANDROID_TRAP_BACK_BUTTON', '1')
 
 import chess
 
-FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fonts')
+if getattr(sys, 'frozen', False):
+    _BASE = sys._MEIPASS
+else:
+    _BASE = os.path.dirname(os.path.abspath(__file__))
+FONT_DIR = os.path.join(_BASE, 'fonts')
 
 pygame.mixer.pre_init(44100, -16, 1, 512)
 pygame.init()
@@ -97,7 +102,7 @@ TIME_CONTROLS = [
     ("Blitz 3+0", 180, 0), ("Blitz 3+2", 180, 2),
     ("Blitz 5+0", 300, 0), ("Blitz 5+3", 300, 3),
     ("Rapid 10+0", 600, 0), ("Rapid 15+10", 900, 10),
-    ("Classical 30", 1800, 0), ("Zen \u221e", 0, 0),
+    ("Classical 30", 1800, 0), ("Zen", 0, 0),
 ]
 
 AI_THINK_MIN = [0.8, 1.0, 1.2, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5]

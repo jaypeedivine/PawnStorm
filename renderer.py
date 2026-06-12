@@ -168,7 +168,7 @@ def draw_top_bar(game, screen):
     pygame.draw.rect(screen, C_TOP, (0, 0, L.WIN_W, L.TOP_H))
     def fmt(t):
         if t == float('inf'):
-            return '\u221e'
+            return '--'
         m, s = divmod(max(0, int(t)), 60)
         return f"{m}:{s:02d}"
     is_zen = game.white_time == float('inf')
@@ -205,7 +205,7 @@ def draw_top_bar(game, screen):
         lt = F.FONT_SM.render(f"Level {game.ai.level}", True, (160,180,200))
     screen.blit(lt, (L.BX + L.BOARD_PX - lt.get_width() - 5, L.TOP_H - 16))
     if game.coach.enabled:
-        ct = F.FONT_XS.render("\u2691 Coach ON", True, (120,180,130))
+        ct = F.FONT_XS.render("Coach ON", True, (120,180,130))
         screen.blit(ct, (L.BX + 5, L.TOP_H - 14))
     yt = F.FONT_XS.render("You: " + ("White" if game.player_color == chess.WHITE else "Black"),
                             True, (120,120,120))
@@ -249,7 +249,7 @@ def draw_coach_tip(game, screen):
     if game.coach.feedback_timer > 0:
         return
     alpha = min(180, game.coach.tip_timer * 2)
-    tip_txt = f"\u2691 {game.coach.tip}"
+    tip_txt = f"Tip: {game.coach.tip}"
     tw = max(200, F.FONT_SM.size(tip_txt)[0] + 20)
     s = pygame.Surface((tw, 26), pygame.SRCALPHA)
     pygame.draw.rect(s, (60, 90, 70, min(180, alpha)), (0, 0, tw, 26), border_radius=6)
@@ -415,168 +415,390 @@ def draw_game_over(game, screen):
             game._review_btn = review_btn
 
 def draw_review(game, screen):
+    W, H = L.WIN_W, L.WIN_H
     screen.fill(C_BG)
-    tt = F.FONT_LG.render("Game Review", True, C_WHITE)
-    screen.blit(tt, tt.get_rect(center=(L.WIN_W//2, 35)))
-    acc = game.coach.get_accuracy()
-    acc_col = (100,200,100) if acc >= 70 else (220,180,60) if acc >= 40 else (210,80,80)
-    at = F.FONT_B.render(f"Accuracy: {acc:.0f}%", True, acc_col)
-    screen.blit(at, at.get_rect(center=(L.WIN_W//2, 68)))
-    annotations = game.coach.annotations
-    counts = {}
-    for v in annotations.values():
-        counts[v] = counts.get(v, 0) + 1
-    sx = L.WIN_W // 2 - 180
-    sy = 90
-    for rating in ['brilliant', 'great', 'good', 'ok', 'inaccuracy', 'mistake', 'blunder']:
-        cnt = counts.get(rating, 0)
-        if cnt == 0:
-            continue
-        col = COACH_COLORS.get(rating, (150,150,150))
-        sym = COACH_SYMBOLS.get(rating, '')
-        name = rating.capitalize()
-        bar_w = min(200, cnt * 25)
-        pygame.draw.rect(screen, (*col, 180), (sx, sy, bar_w, 16), border_radius=4)
-        label = F.FONT_SM.render(f"{sym} {name}: {cnt}", True, C_WHITE)
-        screen.blit(label, (sx + bar_w + 8, sy))
-        sy += 22
-    sy += 10
-    review_data = game.coach.get_review_data(game.move_stack_san)
-    header_y = sy
-    hdr = F.FONT_B.render("  #   White          Black", True, (180,180,180))
-    screen.blit(hdr, (sx - 10, header_y))
-    sy += 22
-    row_h = 20
-    visible = min(len(review_data), max(5, (L.WIN_H - sy - 60) // row_h))
-    start = game.review_scroll
-    for idx in range(start, min(start + visible, len(review_data))):
-        d = review_data[idx]
-        num_txt = f"{d['num']:3d}."
-        w_sym = COACH_SYMBOLS.get(d['w_ann'], '')
-        b_sym = COACH_SYMBOLS.get(d['b_ann'], '')
-        w_col = COACH_COLORS.get(d['w_ann'], (170,170,170))
-        b_col = COACH_COLORS.get(d['b_ann'], (170,170,170))
-        nt = F.FONT_MONO.render(num_txt, True, (120,120,120))
-        screen.blit(nt, (sx - 10, sy))
-        wt = F.FONT_MONO.render(f"{d['w_san']}{w_sym}", True, w_col)
-        screen.blit(wt, (sx + 35, sy))
-        if d['w_better']:
-            bt = F.FONT_XS.render(f"\u2192{d['w_better']}", True, (100,180,100))
-            screen.blit(bt, (sx + 35 + wt.get_width() + 4, sy + 2))
-        if d['b_san']:
-            bt2 = F.FONT_MONO.render(f"{d['b_san']}{b_sym}", True, b_col)
-            screen.blit(bt2, (sx + 160, sy))
-            if d['b_better']:
-                bt3 = F.FONT_XS.render(f"\u2192{d['b_better']}", True, (100,180,100))
-                screen.blit(bt3, (sx + 160 + bt2.get_width() + 4, sy + 2))
-        sy += row_h
-    if len(review_data) > visible:
-        scroll_info = F.FONT_XS.render(f"Showing {start+1}-{min(start+visible, len(review_data))} of {len(review_data)}  (scroll to navigate)", True, (100,100,100))
-        screen.blit(scroll_info, scroll_info.get_rect(center=(L.WIN_W//2, sy + 8)))
-    btn_y = L.WIN_H - 50
     mx, my = pygame.mouse.get_pos()
-    back_r = pygame.Rect(L.WIN_W//2 - 140, btn_y, 120, 34)
-    game.review_back_rect = back_r
-    hover = back_r.collidepoint(mx, my)
-    pygame.draw.rect(screen, C_BTN_H if hover else C_BTN, back_r, border_radius=6)
-    screen.blit(F.FONT_B.render("Back", True, C_WHITE), F.FONT_B.render("Back", True, C_WHITE).get_rect(center=back_r.center))
-    new_r = pygame.Rect(L.WIN_W//2 + 20, btn_y, 120, 34)
-    game.review_newgame_rect = new_r
-    hover2 = new_r.collidepoint(mx, my)
-    pygame.draw.rect(screen, C_BTN_PLAY_H if hover2 else C_BTN_PLAY, new_r, border_radius=6)
-    screen.blit(F.FONT_B.render("New Game", True, C_WHITE), F.FONT_B.render("New Game", True, C_WHITE).get_rect(center=new_r.center))
-    pygame.display.flip()
+    board = game.review_board
+
+    # Board on the left
+    bsz = min(L.SQ, (H - 100) // 8)
+    board_px = bsz * 8
+    bx, by = 10, 10
+    light, dark = THEMES[game.theme_name]
+    for r in range(8):
+        for c in range(8):
+            col = light if (r + c) % 2 == 0 else dark
+            pygame.draw.rect(screen, col, (bx + c * bsz, by + r * bsz, bsz, bsz))
+    for sq in chess.SQUARES:
+        pc = board.piece_at(sq)
+        if pc:
+            file_idx = chess.square_file(sq)
+            rank_idx = 7 - chess.square_rank(sq)
+            img = pieces.cache.get((pc.piece_type, pc.color == chess.WHITE))
+            if img:
+                scaled = pygame.transform.smoothscale(img, (bsz, bsz))
+                screen.blit(scaled, (bx + file_idx * bsz, by + rank_idx * bsz))
+
+    # Highlight last move in review
+    if game.review_idx > 0:
+        last_mv = game.review_moves[game.review_idx - 1]
+        ov = pygame.Surface((bsz, bsz), pygame.SRCALPHA)
+        ov.fill(C_HL_YELLOW)
+        for sq in [last_mv.from_square, last_mv.to_square]:
+            fx = chess.square_file(sq)
+            ry = 7 - chess.square_rank(sq)
+            screen.blit(ov, (bx + fx * bsz, by + ry * bsz))
+        # Show better move arrow
+        half_idx = game.review_idx - 1
+        better = game.coach.better_moves.get(half_idx)
+        if better:
+            bm = better[0]
+            f_from = chess.square_file(bm.from_square)
+            r_from = 7 - chess.square_rank(bm.from_square)
+            f_to = chess.square_file(bm.to_square)
+            r_to = 7 - chess.square_rank(bm.to_square)
+            x1 = bx + f_from * bsz + bsz // 2
+            y1 = by + r_from * bsz + bsz // 2
+            x2 = bx + f_to * bsz + bsz // 2
+            y2 = by + r_to * bsz + bsz // 2
+            pygame.draw.line(screen, (80, 200, 120), (x1, y1), (x2, y2), 3)
+            pygame.draw.circle(screen, (80, 200, 120), (x2, y2), 5)
+
+    # Right panel
+    px = bx + board_px + 12
+    pw = W - px - 8
+    py = 10
+
+    # Accuracy header
+    acc = game.coach.get_accuracy()
+    acc_col = (100, 200, 100) if acc >= 70 else (220, 180, 60) if acc >= 40 else (210, 80, 80)
+    screen.blit(F.FONT_B.render("Game Review", True, C_WHITE), (px, py))
+    py += 20
+    screen.blit(F.FONT_SM.render(f"Accuracy: {acc:.0f}%", True, acc_col), (px, py))
+    py += 22
+
+    # Move counter
+    total = len(game.review_moves)
+    pos_txt = f"Move {game.review_idx}/{total}"
+    screen.blit(F.FONT_SM.render(pos_txt, True, (140, 140, 145)), (px, py))
+    py += 24
+
+    # Coach comment for current position
+    comment, comment_col = game.get_review_comment()
+    pygame.draw.rect(screen, (30, 30, 36), (px, py, pw, 48), border_radius=6)
+    pygame.draw.rect(screen, (*comment_col, 180), (px, py, 4, 48), border_radius=2)
+    lines = []
+    if len(comment) > 40:
+        mid = comment[:40].rfind(' ')
+        if mid == -1:
+            mid = 40
+        lines = [comment[:mid], comment[mid:].strip()]
+    else:
+        lines = [comment]
+    for li, line in enumerate(lines):
+        ct = F.FONT_SM.render(line, True, comment_col)
+        screen.blit(ct, (px + 10, py + 6 + li * 16))
+    py += 58
+
+    # Move list (clickable)
+    screen.blit(F.FONT_B.render("Moves", True, (180, 180, 185)), (px, py))
+    py += 20
+    game.review_move_rects = []
+    row_h = 16
+    visible = max(5, (H - py - 60) // row_h)
+    for i in range(0, len(game.move_stack_san), 2):
+        if py > H - 70:
+            break
+        num = i // 2 + 1
+        w_san = game.move_stack_san[i]
+        b_san = game.move_stack_san[i + 1] if i + 1 < len(game.move_stack_san) else ""
+        w_ann = game.coach.annotations.get(i, '')
+        b_ann = game.coach.annotations.get(i + 1, '')
+        w_col = COACH_COLORS.get(w_ann, (160, 160, 165))
+        b_col = COACH_COLORS.get(b_ann, (160, 160, 165))
+        w_sym = COACH_SYMBOLS.get(w_ann, '')
+        b_sym = COACH_SYMBOLS.get(b_ann, '')
+        # Highlight active move
+        w_active = game.review_idx == i + 1
+        b_active = game.review_idx == i + 2
+        nt = F.FONT_XS.render(f"{num}.", True, (100, 100, 105))
+        screen.blit(nt, (px, py))
+        wr = pygame.Rect(px + 22, py - 1, 60, row_h)
+        game.review_move_rects.append((wr, i + 1))
+        if w_active:
+            pygame.draw.rect(screen, (40, 80, 55), wr, border_radius=3)
+        wt = F.FONT_XS.render(f"{w_san}{w_sym}", True, w_col)
+        screen.blit(wt, (wr.x + 2, py))
+        if b_san:
+            br = pygame.Rect(px + 85, py - 1, 60, row_h)
+            game.review_move_rects.append((br, i + 2))
+            if b_active:
+                pygame.draw.rect(screen, (40, 80, 55), br, border_radius=3)
+            bt = F.FONT_XS.render(f"{b_san}{b_sym}", True, b_col)
+            screen.blit(bt, (br.x + 2, py))
+        py += row_h
+
+    # Navigation buttons at bottom
+    nav_y = H - 44
+    nav_btns = [('|<', 'start'), ('<', 'back'), ('>', 'fwd'), ('>|', 'end')]
+    game.review_nav = []
+    btn_w = 44
+    nav_x = bx + board_px // 2 - (btn_w * 4 + 12) // 2
+    for i, (lbl, action) in enumerate(nav_btns):
+        r = pygame.Rect(nav_x + i * (btn_w + 4), nav_y, btn_w, 34)
+        game.review_nav.append((r, action))
+        hover = r.collidepoint(mx, my)
+        pygame.draw.rect(screen, C_BTN_H if hover else C_BTN, r, border_radius=6)
+        t = F.FONT_B.render(lbl, True, C_WHITE)
+        screen.blit(t, t.get_rect(center=r.center))
+
+    # Exit / New Game buttons
+    exit_r = pygame.Rect(W - 180, nav_y, 80, 34)
+    game.review_nav.append((exit_r, 'exit'))
+    hover_e = exit_r.collidepoint(mx, my)
+    pygame.draw.rect(screen, C_BTN_H if hover_e else C_BTN, exit_r, border_radius=6)
+    et = F.FONT_SM.render("Back", True, C_WHITE)
+    screen.blit(et, et.get_rect(center=exit_r.center))
+
+    new_r = pygame.Rect(W - 90, nav_y, 80, 34)
+    game.review_nav.append((new_r, 'menu'))
+    hover_n = new_r.collidepoint(mx, my)
+    pygame.draw.rect(screen, C_BTN_PLAY_H if hover_n else C_BTN_PLAY, new_r, border_radius=6)
+    nt2 = F.FONT_SM.render("New", True, C_WHITE)
+    screen.blit(nt2, nt2.get_rect(center=new_r.center))
+
+def _draw_card(screen, rect, hover=False, selected=False):
+    if selected:
+        pygame.draw.rect(screen, (38, 100, 55), rect, border_radius=8)
+        pygame.draw.rect(screen, (81, 190, 95), rect, 2, border_radius=8)
+    elif hover:
+        pygame.draw.rect(screen, (48, 48, 55), rect, border_radius=8)
+        pygame.draw.rect(screen, (70, 70, 78), rect, 1, border_radius=8)
+    else:
+        pygame.draw.rect(screen, (36, 36, 42), rect, border_radius=8)
+
+def _star_points(cx, cy, outer, inner, points=5):
+    pts = []
+    for i in range(points * 2):
+        angle = math.pi / 2 + i * math.pi / points
+        r = outer if i % 2 == 0 else inner
+        pts.append((cx + r * math.cos(angle), cy - r * math.sin(angle)))
+    return pts
+
+def _draw_mini_board(screen, x, y, size, light, dark, alpha=40):
+    sq = size // 4
+    surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    for r in range(4):
+        for c in range(4):
+            col = (*light, alpha) if (r + c) % 2 == 0 else (*dark, alpha)
+            pygame.draw.rect(surf, col, (c * sq, r * sq, sq, sq))
+    screen.blit(surf, (x, y))
 
 def draw_menu(game, screen):
-    screen.fill(C_BG)
-    tt = F.FONT_TITLE.render("PawnStorm", True, C_WHITE)
-    screen.blit(tt, tt.get_rect(center=(L.WIN_W//2, 45)))
-    sub = F.FONT_SM.render("Offline Chess \u2022 Play at your own pace", True, (120,120,125))
-    screen.blit(sub, sub.get_rect(center=(L.WIN_W//2, 78)))
+    W, H = L.WIN_W, L.WIN_H
+    cx = W // 2
     mx, my = pygame.mouse.get_pos()
-    game.menu_rects = []
-    screen.blit(F.FONT_B.render("Difficulty", True, (200,200,200)), (L.WIN_W//2-150, 100))
-    names = ['Beginner','Novice','Casual','Easy','Medium',
-             'Intermediate','Strong','Advanced','Expert','Master']
-    bw, bh, gap, cols = 135, 32, 5, 2
-    sx = L.WIN_W//2 - (cols*bw + (cols-1)*gap)//2
-    sy = 122
-    for i in range(10):
-        ri, ci = i // cols, i % cols
-        rect = pygame.Rect(sx + ci*(bw+gap), sy + ri*(bh+gap), bw, bh)
-        game.menu_rects.append((rect, i+1))
-        hover = rect.collidepoint(mx, my)
-        sel = not game.adaptive and game.menu_level == i+1
-        col = (50,170,80) if sel else (C_BTN_H if hover else C_BTN)
-        pygame.draw.rect(screen, col, rect, border_radius=5)
-        t = F.FONT_SM.render(f"{i+1}. {names[i]}", True, C_WHITE)
-        screen.blit(t, t.get_rect(center=rect.center))
-    ay = sy + 5*(bh+gap) + 4
-    ar = pygame.Rect(L.WIN_W//2-68, ay, 136, bh)
-    game.adaptive_rect = ar
-    acol = (180,120,50) if game.adaptive else (C_BTN_H if ar.collidepoint(mx,my) else C_BTN)
-    pygame.draw.rect(screen, acol, ar, border_radius=5)
-    at = F.FONT_B.render(f"Adaptive (L{game.adaptive_level})", True, C_WHITE)
-    screen.blit(at, at.get_rect(center=ar.center))
-    cy = ay + bh + 14
-    screen.blit(F.FONT_B.render("Play as", True, (200,200,200)), (L.WIN_W//2-150, cy))
-    cy += 20
+
+    screen.fill((18, 18, 22))
+
+    # Subtle gradient overlay
+    grad = pygame.Surface((W, H), pygame.SRCALPHA)
+    for row in range(0, H, 2):
+        a = max(0, 8 - int(8 * row / H))
+        pygame.draw.line(grad, (81, 190, 95, a), (0, row), (W, row))
+    screen.blit(grad, (0, 0))
+
+    # Decorative mini boards in corners
+    light, dark = THEMES[game.theme_name]
+    _draw_mini_board(screen, -30, H - 140, 160, light, dark, 18)
+    _draw_mini_board(screen, W - 100, -20, 120, light, dark, 12)
+
+    # --- HEADER ---
+    tt = F.FONT_TITLE.render("PawnStorm", True, (255, 255, 255))
+    screen.blit(tt, tt.get_rect(center=(cx, 38)))
+    sub = F.FONT_SM.render("Play chess offline against AI", True, (95, 100, 110))
+    screen.blit(sub, sub.get_rect(center=(cx, 68)))
+
+    # --- Scrollable single-column layout ---
+    content_top = 90
+    section_w = min(380, W - 40)
+    sx = cx - section_w // 2
+    y = content_top
+
+    # === PLAY AS ===
+    screen.blit(F.FONT_B.render("Play as", True, (200, 200, 205)), (sx, y))
+    y += 24
     game.color_rects = []
-    for i, (val, lbl) in enumerate([('white','White'),('black','Black'),('random','Random')]):
-        cr = pygame.Rect(L.WIN_W//2-150+i*105, cy, 95, 28)
+    pw = (section_w - 16) // 3
+    for i, (val, lbl) in enumerate([('white', 'White'), ('black', 'Black'), ('random', 'Random')]):
+        cr = pygame.Rect(sx + i * (pw + 8), y, pw, 32)
         game.color_rects.append((cr, val))
         sel = game.menu_color == val
-        col = (50,170,80) if sel else (C_BTN_H if cr.collidepoint(mx,my) else C_BTN)
-        pygame.draw.rect(screen, col, cr, border_radius=5)
-        t = F.FONT_SM.render(lbl, True, C_WHITE)
-        screen.blit(t, t.get_rect(center=cr.center))
-    ty = cy + 38
-    screen.blit(F.FONT_B.render("Time Control", True, (200,200,200)), (L.WIN_W//2-150, ty))
-    ty += 20
-    tcbw, tcbh, tcgap, tc_cols = 92, 25, 4, 4
-    tc_sx = L.WIN_W//2 - (tc_cols*tcbw + (tc_cols-1)*tcgap)//2
+        hover = cr.collidepoint(mx, my)
+        if sel:
+            pygame.draw.rect(screen, (36, 110, 58), cr, border_radius=6)
+            pygame.draw.rect(screen, (81, 190, 95), cr, 2, border_radius=6)
+        elif hover:
+            pygame.draw.rect(screen, (44, 44, 50), cr, border_radius=6)
+        else:
+            pygame.draw.rect(screen, (32, 32, 38), cr, border_radius=6)
+        if val == 'white':
+            pygame.draw.circle(screen, (220, 220, 215) if sel else (140, 140, 140),
+                               (cr.x + 16, cr.centery), 6)
+        elif val == 'black':
+            pygame.draw.circle(screen, (50, 50, 55) if sel else (80, 80, 80),
+                               (cr.x + 16, cr.centery), 6)
+            pygame.draw.circle(screen, (120, 120, 125), (cr.x + 16, cr.centery), 6, 1)
+        else:
+            pygame.draw.circle(screen, (220, 220, 215), (cr.x + 13, cr.centery), 4)
+            pygame.draw.circle(screen, (50, 50, 55), (cr.x + 19, cr.centery), 4)
+            pygame.draw.circle(screen, (120, 120, 125), (cr.x + 19, cr.centery), 4, 1)
+        t = F.FONT_SM.render(lbl, True, (240, 240, 235) if sel else (150, 150, 155))
+        screen.blit(t, (cr.x + 30, cr.y + 9))
+    y += 46
+
+    # === DIFFICULTY ===
+    screen.blit(F.FONT_B.render("Difficulty", True, (200, 200, 205)), (sx, y))
+    y += 24
+    names = ['Beginner', 'Novice', 'Casual', 'Easy', 'Medium',
+             'Intermediate', 'Strong', 'Advanced', 'Expert', 'Master']
+    bh, gap = 26, 3
+    row_w = section_w
+    cols = 2
+    col_w = (row_w - 8) // cols
+    game.menu_rects = []
+    for i in range(10):
+        col_idx = i % cols
+        row_idx = i // cols
+        rect = pygame.Rect(sx + col_idx * (col_w + 8), y + row_idx * (bh + gap), col_w, bh)
+        game.menu_rects.append((rect, i + 1))
+        hover = rect.collidepoint(mx, my)
+        sel = not game.adaptive and game.menu_level == i + 1
+        if sel:
+            pygame.draw.rect(screen, (30, 95, 50), rect, border_radius=5)
+            pygame.draw.rect(screen, (81, 190, 95), rect, 2, border_radius=5)
+        elif hover:
+            pygame.draw.rect(screen, (42, 42, 48), rect, border_radius=5)
+        else:
+            pygame.draw.rect(screen, (30, 30, 36), rect, border_radius=5)
+        t = F.FONT_SM.render(names[i], True,
+                             (240, 240, 235) if sel else (140, 140, 145))
+        screen.blit(t, (rect.x + 10, rect.y + 6))
+        total_stars = 5
+        star_x = rect.right - total_stars * 11 - 4
+        filled = (i + 1) // 2
+        has_hollow = (i + 1) % 2
+        fc = (81, 190, 95) if sel else (60, 65, 62)
+        hc = (81, 190, 95, 120) if sel else (45, 48, 45)
+        for s in range(total_stars):
+            cx = star_x + s * 11 + 5
+            cy = rect.centery
+            pts = _star_points(cx, cy, 4, 2)
+            if s < filled:
+                pygame.draw.polygon(screen, fc, pts)
+            elif s == filled and has_hollow:
+                pygame.draw.polygon(screen, hc, pts, 1)
+            else:
+                pygame.draw.polygon(screen, (35, 38, 35), pts)
+
+    rows_needed = (10 + cols - 1) // cols
+    y += rows_needed * (bh + gap) + 4
+
+    # Adaptive toggle
+    ar = pygame.Rect(sx, y, section_w, bh + 2)
+    game.adaptive_rect = ar
+    if game.adaptive:
+        pygame.draw.rect(screen, (65, 50, 10), ar, border_radius=5)
+        pygame.draw.rect(screen, (200, 160, 50), ar, 2, border_radius=5)
+    else:
+        bg = (42, 42, 48) if ar.collidepoint(mx, my) else (30, 30, 36)
+        pygame.draw.rect(screen, bg, ar, border_radius=5)
+    at = F.FONT_SM.render(f"Adaptive Mode (Level {game.adaptive_level})", True,
+                          (240, 195, 80) if game.adaptive else (130, 130, 135))
+    screen.blit(at, (ar.x + 12, ar.y + 7))
+    tog_x = ar.right - 38
+    tog_w, tog_h = 28, 14
+    tog_r = pygame.Rect(tog_x, ar.centery - tog_h // 2, tog_w, tog_h)
+    if game.adaptive:
+        pygame.draw.rect(screen, (200, 160, 50), tog_r, border_radius=7)
+        pygame.draw.circle(screen, (255, 255, 255), (tog_r.right - 7, tog_r.centery), 5)
+    else:
+        pygame.draw.rect(screen, (60, 60, 65), tog_r, border_radius=7)
+        pygame.draw.circle(screen, (100, 100, 105), (tog_r.x + 7, tog_r.centery), 5)
+    y += bh + 14
+
+    # === TIME CONTROL ===
+    screen.blit(F.FONT_B.render("Time Control", True, (200, 200, 205)), (sx, y))
+    y += 24
+    tcbw = (section_w - 8) // 2
+    tcbh, tcgap, tc_cols = 26, 3, 2
     game.tc_rects = []
     for ti, (tname, _, _) in enumerate(TIME_CONTROLS):
-        tr, tc = ti // tc_cols, ti % tc_cols
-        tcr = pygame.Rect(tc_sx+tc*(tcbw+tcgap), ty+tr*(tcbh+tcgap), tcbw, tcbh)
+        tr_row, tc_col = ti // tc_cols, ti % tc_cols
+        tcr = pygame.Rect(sx + tc_col * (tcbw + 8), y + tr_row * (tcbh + tcgap), tcbw, tcbh)
         game.tc_rects.append((tcr, ti))
         sel = game.tc_idx == ti
-        col = (50,170,80) if sel else (C_BTN_H if tcr.collidepoint(mx,my) else C_BTN)
-        pygame.draw.rect(screen, col, tcr, border_radius=4)
-        t = F.FONT_XS.render(tname, True, C_WHITE)
+        hover = tcr.collidepoint(mx, my)
+        display_name = tname.replace('\u221e', 'No Limit')
+        if sel:
+            pygame.draw.rect(screen, (30, 95, 50), tcr, border_radius=5)
+            pygame.draw.rect(screen, (81, 190, 95), tcr, 2, border_radius=5)
+        elif hover:
+            pygame.draw.rect(screen, (42, 42, 48), tcr, border_radius=5)
+        else:
+            pygame.draw.rect(screen, (30, 30, 36), tcr, border_radius=5)
+        t = F.FONT_SM.render(display_name, True, (240, 240, 235) if sel else (140, 140, 145))
         screen.blit(t, t.get_rect(center=tcr.center))
+
     tc_rows = (len(TIME_CONTROLS) + tc_cols - 1) // tc_cols
-    thy = ty + tc_rows*(tcbh+tcgap) + 8
-    screen.blit(F.FONT.render("Theme:", True, (180,180,180)), (L.WIN_W//2-150, thy))
+    y += tc_rows * (tcbh + tcgap) + 14
+
+    # === BOARD THEME + COACH (inline row) ===
+    screen.blit(F.FONT_B.render("Theme", True, (200, 200, 205)), (sx, y))
+    y += 22
     game.theme_rects = []
+    thw = 36
     for i, tn in enumerate(THEME_NAMES):
-        light, dark = THEMES[tn]
-        tr = pygame.Rect(L.WIN_W//2-40+i*62, thy-2, 56, 22)
+        tl, td = THEMES[tn]
+        tr = pygame.Rect(sx + i * (thw + 6), y, thw, 24)
         game.theme_rects.append((tr, tn))
         sel = game.theme_name == tn
-        bdr = (50,170,80) if sel else (70,70,70)
-        pygame.draw.rect(screen, light, (tr.x, tr.y, 28, 22), border_radius=3)
-        pygame.draw.rect(screen, dark, (tr.x+28, tr.y, 28, 22), border_radius=3)
-        pygame.draw.rect(screen, bdr, tr, 2, border_radius=3)
-    coy = thy + 30
-    coach_r = pygame.Rect(L.WIN_W//2 - 80, coy, 160, 28)
+        pygame.draw.rect(screen, tl, (tr.x, tr.y, thw // 2, 24), border_radius=3)
+        pygame.draw.rect(screen, td, (tr.x + thw // 2, tr.y, thw // 2, 24), border_radius=3)
+        if sel:
+            pygame.draw.rect(screen, (81, 190, 95), tr, 2, border_radius=4)
+
+    # Coach toggle on same row, right-aligned
+    coach_w = 110
+    coach_r = pygame.Rect(sx + section_w - coach_w, y - 2, coach_w, 28)
     game.coach_rect = coach_r
     coach_on = game.menu_coach
-    ccol = (60,140,80) if coach_on else (C_BTN_H if coach_r.collidepoint(mx,my) else (80,60,60))
-    pygame.draw.rect(screen, ccol, coach_r, border_radius=5)
-    clbl = "\u2691 Coach: ON" if coach_on else "\u2691 Coach: OFF"
-    ct = F.FONT_B.render(clbl, True, C_WHITE)
+    hover_c = coach_r.collidepoint(mx, my)
+    if coach_on:
+        pygame.draw.rect(screen, (30, 80, 45), coach_r, border_radius=6)
+        pygame.draw.rect(screen, (81, 190, 95), coach_r, 2, border_radius=6)
+    elif hover_c:
+        pygame.draw.rect(screen, (42, 42, 48), coach_r, border_radius=6)
+    else:
+        pygame.draw.rect(screen, (30, 30, 36), coach_r, border_radius=6)
+    clbl = "Coach ON" if coach_on else "Coach OFF"
+    ct = F.FONT_SM.render(clbl, True, (140, 230, 155) if coach_on else (120, 120, 125))
     screen.blit(ct, ct.get_rect(center=coach_r.center))
-    coach_desc = "Tips, move ratings, accuracy & game review" if coach_on else "Play without feedback"
-    cd = F.FONT_XS.render(coach_desc, True, (120,120,120))
-    screen.blit(cd, cd.get_rect(center=(L.WIN_W//2, coy + 36)))
-    py = coy + 52
-    pr = pygame.Rect(L.WIN_W//2-85, py, 170, 46)
+
+    # --- PLAY BUTTON ---
+    btn_w = min(280, section_w)
+    btn_h = 52
+    btn_y = H - btn_h - 18
+    pr = pygame.Rect(cx - btn_w // 2, btn_y, btn_w, btn_h)
     game.play_rect = pr
-    pcol = C_BTN_PLAY_H if pr.collidepoint(mx,my) else C_BTN_PLAY
-    pygame.draw.rect(screen, pcol, pr, border_radius=8)
-    pt = F.FONT_LG.render("Play", True, C_WHITE)
+    hover_play = pr.collidepoint(mx, my)
+    base = (55, 185, 80) if hover_play else (42, 160, 65)
+    pygame.draw.rect(screen, base, pr, border_radius=10)
+    if hover_play:
+        glow = pygame.Surface((pr.w + 10, pr.h + 10), pygame.SRCALPHA)
+        pygame.draw.rect(glow, (81, 200, 100, 50), (0, 0, pr.w + 10, pr.h + 10), 3, border_radius=12)
+        screen.blit(glow, (pr.x - 5, pr.y - 5))
+    pt = F.FONT_LG.render("Play", True, (255, 255, 255))
     screen.blit(pt, pt.get_rect(center=pr.center))
-    ft = F.FONT_XS.render("ESC = cancel premove | Drag & drop or click to move", True, (75,75,80))
-    screen.blit(ft, ft.get_rect(center=(L.WIN_W//2, L.WIN_H-12)))
+
     pygame.display.flip()

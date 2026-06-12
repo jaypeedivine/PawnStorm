@@ -1,13 +1,17 @@
 import chess
 import random
+import time
 from config import PIECE_VAL, PST
 
 class ChessAI:
-    DEPTH_MAP = [1,1,2,2,3,3,3,4,4,5]
+    DEPTH_MAP = [1,1,2,2,3,3,3,4,4,4]
+    TIME_LIMIT = [1.0, 1.0, 2.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0]
 
     def __init__(self, level=5):
         self.level = level
         self.depth = self.DEPTH_MAP[level - 1]
+        self.timeout = False
+        self.search_start = 0
 
     def set_level(self, lv):
         self.level = lv
@@ -70,7 +74,12 @@ class ChessAI:
         return sc
 
     def alphabeta(self, board, depth, alpha, beta, maximizing):
+        if self.timeout:
+            return self.evaluate(board)
         if depth == 0 or board.is_game_over():
+            return self.evaluate(board)
+        if time.time() - self.search_start > self.TIME_LIMIT[self.level - 1]:
+            self.timeout = True
             return self.evaluate(board)
         moves = list(board.legal_moves)
         if self.level >= 4:
@@ -100,13 +109,19 @@ class ChessAI:
         moves = list(board.legal_moves)
         if not moves:
             return None
+        if self.level >= 4:
+            moves.sort(key=lambda m: self._move_priority(board, m), reverse=True)
         maximizing = board.turn == chess.WHITE
+        self.timeout = False
+        self.search_start = time.time()
         scored = []
         for m in moves:
             board.push(m)
             sc = self.alphabeta(board, self.depth - 1, -float('inf'), float('inf'), not maximizing)
             board.pop()
             scored.append((sc, m))
+            if self.timeout:
+                break
         scored.sort(key=lambda x: x[0], reverse=maximizing)
         if self.level <= 1:
             return random.choice(scored[:min(5, len(scored))])[1]

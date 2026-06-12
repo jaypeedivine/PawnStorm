@@ -4,7 +4,8 @@ import threading
 import time
 import random
 import sys
-from config import L, F, THEMES, THEME_NAMES, TIME_CONTROLS, AI_THINK_MIN, AI_THINK_JITTER, detect_opening
+from config import (L, F, THEMES, THEME_NAMES, TIME_CONTROLS, AI_THINK_MIN, AI_THINK_JITTER,
+                     COACH_COLORS, COACH_SYMBOLS, detect_opening)
 from sounds import SND_MOVE, SND_CAP, SND_CHECK, SND_ILLEGAL
 import pieces
 from ai import ChessAI
@@ -25,6 +26,7 @@ class ChessGame:
         self.board = chess.Board()
         self.ai = ChessAI(5)
         self.coach = Coach(self.ai)
+        self.coach_mode_idx = 0
         self.player_color = chess.WHITE
         self.flipped = False
         self.selected = None
@@ -55,7 +57,7 @@ class ChessGame:
         self.state = 'menu'
         self.menu_level = 5
         self.menu_color = 'white'
-        self.menu_coach = True
+        self.menu_coach = False
         self.adaptive = False
         self.adaptive_level = 4
         self.consec_wins = 0
@@ -103,7 +105,7 @@ class ChessGame:
 
     def _build_buttons(self):
         self.buttons = []
-        labels = ['Undo', 'Hint', 'New', 'Review', 'Theme', 'Menu']
+        labels = ['Undo', 'Hint', 'Resign', 'New', 'Review', 'Menu']
         bw = max(40, int(L.SQ * 0.88))
         bh = max(22, int(L.SQ * 0.42))
         gap = max(3, int(L.SQ * 0.08))
@@ -276,12 +278,75 @@ class ChessGame:
 
     def _ai_worker(self):
         t0 = time.time()
-        move = self.ai.get_move(self.board.copy())
-        target = max(0.5, AI_THINK_MIN[self.ai.level-1] + random.uniform(-AI_THINK_JITTER, AI_THINK_JITTER))
+        board_copy = self.board.copy()
+        ai_time = self.black_time if self.board.turn == chess.BLACK else self.white_time
+        move_num = len(self.board.move_stack) // 2
+
+        pressure = self._time_pressure(ai_time)
+        orig_depth = self.ai.depth
+        if pressure > 0.7:
+            self.ai.depth = max(1, orig_depth - 2)
+        elif pressure > 0.4:
+            self.ai.depth = max(1, orig_depth - 1)
+
+        move = self.ai.get_move(board_copy)
+        self.ai.depth = orig_depth
+
+        target = self._smart_delay(ai_time, move_num, board_copy, pressure)
         wait = target - (time.time() - t0)
         if wait > 0:
             time.sleep(wait)
         self.ai_result = move
+
+    def _time_pressure(self, ai_time):
+        if ai_time == float('inf'):
+            return 0.0
+        if ai_time <= 5:
+            return 0.9
+        elif ai_time <= 15:
+            return 0.7
+        elif ai_time <= 30:
+            return 0.4
+        elif ai_time <= 60:
+            return 0.2
+        return 0.0
+
+    def _smart_delay(self, ai_time, move_num, board, pressure):
+        base = AI_THINK_MIN[self.ai.level - 1]
+
+        if ai_time == float('inf'):
+            return max(0.5, base + random.uniform(-AI_THINK_JITTER, AI_THINK_JITTER))
+
+        if move_num < 4:
+            delay = random.uniform(0.3, 0.8)
+        elif move_num < 10:
+            delay = base * random.uniform(0.6, 1.0)
+        else:
+            delay = base + random.uniform(-AI_THINK_JITTER, AI_THINK_JITTER)
+
+        is_capture = any(board.is_capture(m) for m in list(board.legal_moves)[:5])
+        if board.is_check():
+            delay *= 0.5
+        elif is_capture:
+            delay *= random.uniform(0.5, 0.8)
+
+        num_legal = len(list(board.legal_moves))
+        if num_legal <= 3:
+            delay *= 0.4
+        elif num_legal > 25:
+            delay *= random.uniform(1.1, 1.4)
+
+        if pressure > 0.7:
+            delay = random.uniform(0.1, 0.4)
+        elif pressure > 0.4:
+            delay *= 0.4
+        elif pressure > 0.2:
+            delay *= 0.7
+
+        max_spend = ai_time * 0.08
+        delay = min(delay, max_spend)
+
+        return max(0.15, delay)
 
     def _apply_ai_move(self):
         move = self.ai_result
@@ -362,6 +427,14 @@ class ChessGame:
         self.premove = None
         self.hint_move = None
 
+    def resign(self):
+        if self.game_over or not self.board.move_stack:
+            return
+        self.game_over = True
+        winner = "Black" if self.player_color == chess.WHITE else "White"
+        self.game_result = f"{winner} wins by resignation"
+        self._adapt_loss()
+
     def hint(self):
         if self.ai_thinking or self.game_over or not self._is_player_turn():
             return
@@ -406,7 +479,8 @@ class ChessGame:
         self.scroll_offset = 0
         self.review_scroll = 0
         self.coach.reset()
-        self.coach.active = self.coach_mode_idx == 1
+        self.coach.active = self.menu_coach
+        self.coach.enabled = self.menu_coach
         if self.player_color != chess.WHITE:
             self._start_ai()
 
@@ -419,6 +493,7 @@ class ChessGame:
             if rect.collidepoint(pos):
                 if label == 'Undo': self.undo()
                 elif label == 'Hint': self.hint()
+                elif label == 'Resign': self.resign()
                 elif label == 'New': self.new_game()
                 elif label == 'Review':
                     if self.game_over and self.move_stack_san:
@@ -444,6 +519,7 @@ class ChessGame:
         self.state = 'review'
         self.review_moves = list(self.board.move_stack)
         self.review_idx = len(self.review_moves)
+        self.review_scroll = 0
         self._rebuild_review_board()
 
     def _rebuild_review_board(self):
@@ -458,6 +534,40 @@ class ChessGame:
             self.review_idx = new_idx
             self._rebuild_review_board()
 
+    def get_review_comment(self):
+        if self.review_idx == 0:
+            return "Starting position.", (150, 150, 155)
+        half_idx = self.review_idx - 1
+        ann = self.coach.annotations.get(half_idx, '')
+        move_san = self.move_stack_san[half_idx] if half_idx < len(self.move_stack_san) else ''
+        move_num = half_idx // 2 + 1
+        is_white = half_idx % 2 == 0
+        side = "White" if is_white else "Black"
+        better = self.coach.better_moves.get(half_idx)
+        if ann == 'blunder':
+            msg = f"{side} played {move_san} — a blunder!"
+            if better:
+                msg += f" Better was {better[1]}."
+            return msg, COACH_COLORS['blunder']
+        elif ann == 'mistake':
+            msg = f"{side} played {move_san} — a mistake."
+            if better:
+                msg += f" {better[1]} was stronger."
+            return msg, COACH_COLORS['mistake']
+        elif ann == 'inaccuracy':
+            msg = f"{side} played {move_san} — slightly inaccurate."
+            if better:
+                msg += f" Consider {better[1]}."
+            return msg, COACH_COLORS['inaccuracy']
+        elif ann == 'brilliant':
+            return f"{side} played {move_san} — brilliant!!", COACH_COLORS['brilliant']
+        elif ann == 'great':
+            return f"{side} played {move_san} — great move!", COACH_COLORS['great']
+        elif ann in ('good', 'ok'):
+            return f"{move_num}. {'...' if not is_white else ''}{move_san}", (150, 150, 155)
+        else:
+            return f"{move_num}. {'...' if not is_white else ''}{move_san}", (150, 150, 155)
+
     def handle_review_click(self, pos):
         if hasattr(self, 'review_nav'):
             for rect, action in self.review_nav:
@@ -467,35 +577,13 @@ class ChessGame:
                     elif action == 'fwd': self.review_step(1)
                     elif action == 'end': self.review_step(999)
                     elif action == 'exit': self.state = 'playing'
+                    elif action == 'menu': self.state = 'menu'
                     return
-
-    def start_review(self):
-        self.state = 'review'
-        self.review_moves = list(self.board.move_stack)
-        self.review_idx = len(self.review_moves)
-        self._rebuild_review_board()
-
-    def _rebuild_review_board(self):
-        b = chess.Board()
-        for i in range(self.review_idx):
-            b.push(self.review_moves[i])
-        self.review_board = b
-
-    def review_step(self, delta):
-        new_idx = max(0, min(len(self.review_moves), self.review_idx + delta))
-        if new_idx != self.review_idx:
-            self.review_idx = new_idx
-            self._rebuild_review_board()
-
-    def handle_review_click(self, pos):
-        if hasattr(self, 'review_nav'):
-            for rect, action in self.review_nav:
+        if hasattr(self, 'review_move_rects'):
+            for rect, idx in self.review_move_rects:
                 if rect.collidepoint(pos):
-                    if action == 'start': self.review_step(-999)
-                    elif action == 'back': self.review_step(-1)
-                    elif action == 'fwd': self.review_step(1)
-                    elif action == 'end': self.review_step(999)
-                    elif action == 'exit': self.state = 'playing'
+                    self.review_idx = idx
+                    self._rebuild_review_board()
                     return
 
     def handle_menu_click(self, pos):
@@ -532,26 +620,13 @@ class ChessGame:
                 if rect.collidepoint(pos):
                     self.coach_mode_idx = idx
                     self.coach.active = idx == 1
-                    return
-        if hasattr(self, 'coach_rects'):
-            for rect, idx in self.coach_rects:
-                if rect.collidepoint(pos):
-                    self.coach_mode_idx = idx
-                    self.coach.active = idx == 1
+                    self.coach.enabled = idx == 1
                     return
         if hasattr(self, 'play_rect') and self.play_rect.collidepoint(pos):
             self.ai.set_level(self.adaptive_level if self.adaptive else self.menu_level)
             self.state = 'playing'
             self.new_game()
             self.last_tick = time.time()
-
-    def handle_review_click(self, pos):
-        if hasattr(self, 'review_back_rect') and self.review_back_rect.collidepoint(pos):
-            self.state = 'playing'
-            return
-        if hasattr(self, 'review_newgame_rect') and self.review_newgame_rect.collidepoint(pos):
-            self.state = 'menu'
-            return
 
     def update(self):
         now = time.time()
@@ -630,6 +705,8 @@ class ChessGame:
                             self.handle_menu_click(event.pos)
                         elif self.state == 'review':
                             self.handle_review_click(event.pos)
+                        elif hasattr(self, '_review_btn') and self.game_over and self._review_btn.collidepoint(event.pos):
+                            self.start_review()
                         elif not self.handle_button(event.pos):
                             self.handle_mouse_down(event.pos)
                     elif event.button in (4, 5):

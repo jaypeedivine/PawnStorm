@@ -34,10 +34,14 @@ class Coach:
         self.last_feedback = None
         self.feedback_timer = 0
         self.eval_display = 0.5
-        self.enabled = True
+        self.active = False
+        self.enabled = False
         self.tip = None
         self.tip_timer = 0
         self.accuracy_scores = []
+
+    def find_best_before(self, board):
+        pass
 
     def record_and_rate(self, board_after, half_idx, player_color, is_player, before_fen=None):
         ev = self.ai.quick_eval(board_after)
