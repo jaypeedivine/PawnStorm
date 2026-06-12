@@ -16,7 +16,22 @@ class ChessGame:
     def __init__(self):
         self.portrait = False
         self.panel_below_h = 0
-        self.screen = pygame.display.set_mode((L.WIN_W, L.WIN_H), pygame.RESIZABLE)
+        if L.IS_MOBILE:
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+            w, h = self.screen.get_size()
+            L.WIN_W, L.WIN_H = w, h
+            L.EVAL_W = 0
+            L.PANEL_W = 0
+            L.TOP_H = int(h * 0.06)
+            L.BOT_H = int(h * 0.07)
+            L.SQ = min(w // 8, (h - L.TOP_H - L.BOT_H) // 8)
+            L.BOARD_PX = L.SQ * 8
+            L.BX = (w - L.BOARD_PX) // 2
+            self.portrait = True
+            pieces.rebuild(L.SQ)
+            F.rebuild(L.SQ)
+        else:
+            self.screen = pygame.display.set_mode((L.WIN_W, L.WIN_H), pygame.RESIZABLE)
         pygame.display.set_caption("PawnStorm Chess")
         import os
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pawnstorm_icon.png")

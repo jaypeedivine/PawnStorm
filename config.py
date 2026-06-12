@@ -15,17 +15,31 @@ FONT_DIR = os.path.join(_BASE, 'fonts')
 pygame.mixer.pre_init(44100, -16, 1, 512)
 pygame.init()
 
+def _is_android():
+    return 'ANDROID_STORAGE' in os.environ or 'ANDROID_ARGUMENT' in os.environ
+
 class L:
     _di = pygame.display.Info()
-    _max = min(_di.current_w - 320, _di.current_h - 160)
-    SQ = max(52, min(88, _max // 8))
-    BOARD_PX = SQ * 8
-    EVAL_W = 26
-    PANEL_W = 235
-    TOP_H = 50
-    BOT_H = 52
-    WIN_W = EVAL_W + BOARD_PX + PANEL_W
-    WIN_H = TOP_H + BOARD_PX + BOT_H
+    IS_MOBILE = _is_android()
+    if IS_MOBILE:
+        WIN_W = _di.current_w
+        WIN_H = _di.current_h
+        EVAL_W = 0
+        PANEL_W = 0
+        TOP_H = int(WIN_H * 0.06)
+        BOT_H = int(WIN_H * 0.07)
+        SQ = min((WIN_W) // 8, (WIN_H - TOP_H - BOT_H) // 8)
+        BOARD_PX = SQ * 8
+    else:
+        _max = min(_di.current_w - 320, _di.current_h - 160)
+        SQ = max(52, min(88, _max // 8))
+        BOARD_PX = SQ * 8
+        EVAL_W = 26
+        PANEL_W = 235
+        TOP_H = 50
+        BOT_H = 52
+        WIN_W = EVAL_W + BOARD_PX + PANEL_W
+        WIN_H = TOP_H + BOARD_PX + BOT_H
     BX = EVAL_W
 
 def _font(name, size, bold=False):
