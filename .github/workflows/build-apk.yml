@@ -7,14 +7,14 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.10'
 
       - name: Install system deps
         run: |
@@ -24,12 +24,13 @@ jobs:
             openjdk-17-jdk \
             autoconf automake libtool \
             libffi-dev libssl-dev \
-            cmake ccache
+            cmake ccache \
+            lld
           libtoolize --install --copy --force || true
 
       - name: Install buildozer
         run: |
-          pip install buildozer cython
+          pip install buildozer==1.5.0 cython==0.29.36
 
       - name: Build APK
         run: |
