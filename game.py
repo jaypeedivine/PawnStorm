@@ -20,13 +20,13 @@ class ChessGame:
             self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
             w, h = self.screen.get_size()
             L.WIN_W, L.WIN_H = w, h
-            L.EVAL_W = 0
+            L.EVAL_W = 26
             L.PANEL_W = 0
             L.TOP_H = int(h * 0.06)
             L.BOT_H = int(h * 0.07)
-            L.SQ = min(w // 8, (h - L.TOP_H - L.BOT_H) // 8)
+            L.SQ = min((w - L.EVAL_W) // 8, (h - L.TOP_H - L.BOT_H) // 8)
             L.BOARD_PX = L.SQ * 8
-            L.BX = (w - L.BOARD_PX) // 2
+            L.BX = L.EVAL_W
             self.portrait = True
             pieces.rebuild(L.SQ)
             F.rebuild(L.SQ)

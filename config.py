@@ -24,7 +24,7 @@ class L:
     if IS_MOBILE:
         WIN_W = _di.current_w
         WIN_H = _di.current_h
-        EVAL_W = 0
+        EVAL_W = 26
         PANEL_W = 0
         TOP_H = int(WIN_H * 0.06)
         BOT_H = int(WIN_H * 0.07)
