@@ -163,7 +163,7 @@ def draw_thinking(game, screen):
     if not game.ai_thinking:
         return
     elapsed = time.time() - game.ai_think_start
-    bar_h = 4
+    bar_h = max(4, L.SQ // 12) if L.IS_MOBILE else 4
     bar_y = L.TOP_H + L.BOARD_PX - bar_h if not game.flipped else L.TOP_H
     phase = (math.sin(elapsed * 1.2) + 1) / 2
     glow_w = max(60, L.BOARD_PX // 3)
@@ -617,40 +617,34 @@ def draw_menu(game, screen):
     W, H = L.WIN_W, L.WIN_H
     cx = W // 2
     mx, my = pygame.mouse.get_pos()
+    mobile = L.IS_MOBILE
+    sc = L.SQ / 72.0 if mobile else 1.0
 
     screen.fill((18, 18, 22))
 
-    # Subtle gradient overlay
-    grad = pygame.Surface((W, H), pygame.SRCALPHA)
-    for row in range(0, H, 2):
-        a = max(0, 8 - int(8 * row / H))
-        pygame.draw.line(grad, (81, 190, 95, a), (0, row), (W, row))
-    screen.blit(grad, (0, 0))
-
-    # Decorative mini boards in corners
-    light, dark = THEMES[game.theme_name]
-    _draw_mini_board(screen, -30, H - 140, 160, light, dark, 18)
-    _draw_mini_board(screen, W - 100, -20, 120, light, dark, 12)
-
     # --- HEADER ---
+    hdr_y = int(28 * sc)
     tt = F.FONT_TITLE.render("PawnStorm", True, (255, 255, 255))
-    screen.blit(tt, tt.get_rect(center=(cx, 38)))
+    screen.blit(tt, tt.get_rect(center=(cx, hdr_y)))
     sub = F.FONT_SM.render("Play chess offline against AI", True, (95, 100, 110))
-    screen.blit(sub, sub.get_rect(center=(cx, 68)))
+    screen.blit(sub, sub.get_rect(center=(cx, hdr_y + int(28 * sc))))
 
     # --- Scrollable single-column layout ---
-    content_top = 90
-    section_w = min(380, W - 40)
+    content_top = hdr_y + int(44 * sc)
+    section_w = min(int(380 * sc), W - int(24 * sc))
     sx = cx - section_w // 2
     y = content_top
 
     # === PLAY AS ===
+    lbl_gap = int(22 * sc)
+    btn_h = int(36 * sc)
+    sec_gap = int(16 * sc)
     screen.blit(F.FONT_B.render("Play as", True, (200, 200, 205)), (sx, y))
-    y += 24
+    y += lbl_gap
     game.color_rects = []
-    pw = (section_w - 16) // 3
+    pw = (section_w - int(16 * sc)) // 3
     for i, (val, lbl) in enumerate([('white', 'White'), ('black', 'Black'), ('random', 'Random')]):
-        cr = pygame.Rect(sx + i * (pw + 8), y, pw, 32)
+        cr = pygame.Rect(sx + i * (pw + int(8 * sc)), y, pw, btn_h)
         game.color_rects.append((cr, val))
         sel = game.menu_color == val
         hover = cr.collidepoint(mx, my)
@@ -661,35 +655,36 @@ def draw_menu(game, screen):
             pygame.draw.rect(screen, (44, 44, 50), cr, border_radius=6)
         else:
             pygame.draw.rect(screen, (32, 32, 38), cr, border_radius=6)
+        dot_x = cr.x + int(16 * sc)
         if val == 'white':
             pygame.draw.circle(screen, (220, 220, 215) if sel else (140, 140, 140),
-                               (cr.x + 16, cr.centery), 6)
+                               (dot_x, cr.centery), int(6 * sc))
         elif val == 'black':
             pygame.draw.circle(screen, (50, 50, 55) if sel else (80, 80, 80),
-                               (cr.x + 16, cr.centery), 6)
-            pygame.draw.circle(screen, (120, 120, 125), (cr.x + 16, cr.centery), 6, 1)
+                               (dot_x, cr.centery), int(6 * sc))
+            pygame.draw.circle(screen, (120, 120, 125), (dot_x, cr.centery), int(6 * sc), 1)
         else:
-            pygame.draw.circle(screen, (220, 220, 215), (cr.x + 13, cr.centery), 4)
-            pygame.draw.circle(screen, (50, 50, 55), (cr.x + 19, cr.centery), 4)
-            pygame.draw.circle(screen, (120, 120, 125), (cr.x + 19, cr.centery), 4, 1)
+            pygame.draw.circle(screen, (220, 220, 215), (dot_x - 3, cr.centery), int(4 * sc))
+            pygame.draw.circle(screen, (50, 50, 55), (dot_x + 3, cr.centery), int(4 * sc))
+            pygame.draw.circle(screen, (120, 120, 125), (dot_x + 3, cr.centery), int(4 * sc), 1)
         t = F.FONT_SM.render(lbl, True, (240, 240, 235) if sel else (150, 150, 155))
-        screen.blit(t, (cr.x + 30, cr.y + 9))
-    y += 46
+        screen.blit(t, (dot_x + int(12 * sc), cr.centery - t.get_height() // 2))
+    y += btn_h + sec_gap
 
     # === DIFFICULTY ===
     screen.blit(F.FONT_B.render("Difficulty", True, (200, 200, 205)), (sx, y))
-    y += 24
+    y += lbl_gap
     names = ['Beginner', 'Novice', 'Casual', 'Easy', 'Medium',
              'Intermediate', 'Strong', 'Advanced', 'Expert', 'Master']
-    bh, gap = 26, 3
-    row_w = section_w
+    bh = int(28 * sc)
+    gap = int(3 * sc)
     cols = 2
-    col_w = (row_w - 8) // cols
+    col_w = (section_w - int(8 * sc)) // cols
     game.menu_rects = []
     for i in range(10):
         col_idx = i % cols
         row_idx = i // cols
-        rect = pygame.Rect(sx + col_idx * (col_w + 8), y + row_idx * (bh + gap), col_w, bh)
+        rect = pygame.Rect(sx + col_idx * (col_w + int(8 * sc)), y + row_idx * (bh + gap), col_w, bh)
         game.menu_rects.append((rect, i + 1))
         hover = rect.collidepoint(mx, my)
         sel = not game.adaptive and game.menu_level == i + 1
@@ -702,17 +697,18 @@ def draw_menu(game, screen):
             pygame.draw.rect(screen, (30, 30, 36), rect, border_radius=5)
         t = F.FONT_SM.render(names[i], True,
                              (240, 240, 235) if sel else (140, 140, 145))
-        screen.blit(t, (rect.x + 10, rect.y + 6))
+        screen.blit(t, (rect.x + int(8 * sc), rect.centery - t.get_height() // 2))
         total_stars = 5
-        star_x = rect.right - total_stars * 11 - 4
+        star_sp = int(11 * sc)
+        star_x = rect.right - total_stars * star_sp - int(4 * sc)
         filled = (i + 1) // 2
         has_hollow = (i + 1) % 2
         fc = (81, 190, 95) if sel else (60, 65, 62)
         hc = (81, 190, 95, 120) if sel else (45, 48, 45)
         for s in range(total_stars):
-            cx = star_x + s * 11 + 5
-            cy = rect.centery
-            pts = _star_points(cx, cy, 4, 2)
+            scx = star_x + s * star_sp + star_sp // 2
+            scy = rect.centery
+            pts = _star_points(scx, scy, int(4 * sc), int(2 * sc))
             if s < filled:
                 pygame.draw.polygon(screen, fc, pts)
             elif s == filled and has_hollow:
@@ -721,10 +717,10 @@ def draw_menu(game, screen):
                 pygame.draw.polygon(screen, (35, 38, 35), pts)
 
     rows_needed = (10 + cols - 1) // cols
-    y += rows_needed * (bh + gap) + 4
+    y += rows_needed * (bh + gap) + int(4 * sc)
 
     # Adaptive toggle
-    ar = pygame.Rect(sx, y, section_w, bh + 2)
+    ar = pygame.Rect(sx, y, section_w, bh)
     game.adaptive_rect = ar
     if game.adaptive:
         pygame.draw.rect(screen, (65, 50, 10), ar, border_radius=5)
@@ -734,27 +730,28 @@ def draw_menu(game, screen):
         pygame.draw.rect(screen, bg, ar, border_radius=5)
     at = F.FONT_SM.render(f"Adaptive Mode (Level {game.adaptive_level})", True,
                           (240, 195, 80) if game.adaptive else (130, 130, 135))
-    screen.blit(at, (ar.x + 12, ar.y + 7))
-    tog_x = ar.right - 38
-    tog_w, tog_h = 28, 14
-    tog_r = pygame.Rect(tog_x, ar.centery - tog_h // 2, tog_w, tog_h)
+    screen.blit(at, (ar.x + int(12 * sc), ar.centery - at.get_height() // 2))
+    tog_w, tog_h = int(28 * sc), int(14 * sc)
+    tog_r = pygame.Rect(ar.right - tog_w - int(8 * sc), ar.centery - tog_h // 2, tog_w, tog_h)
     if game.adaptive:
-        pygame.draw.rect(screen, (200, 160, 50), tog_r, border_radius=7)
-        pygame.draw.circle(screen, (255, 255, 255), (tog_r.right - 7, tog_r.centery), 5)
+        pygame.draw.rect(screen, (200, 160, 50), tog_r, border_radius=tog_h // 2)
+        pygame.draw.circle(screen, (255, 255, 255), (tog_r.right - tog_h // 2, tog_r.centery), tog_h // 2 - 2)
     else:
-        pygame.draw.rect(screen, (60, 60, 65), tog_r, border_radius=7)
-        pygame.draw.circle(screen, (100, 100, 105), (tog_r.x + 7, tog_r.centery), 5)
-    y += bh + 14
+        pygame.draw.rect(screen, (60, 60, 65), tog_r, border_radius=tog_h // 2)
+        pygame.draw.circle(screen, (100, 100, 105), (tog_r.x + tog_h // 2, tog_r.centery), tog_h // 2 - 2)
+    y += bh + sec_gap
 
     # === TIME CONTROL ===
     screen.blit(F.FONT_B.render("Time Control", True, (200, 200, 205)), (sx, y))
-    y += 24
-    tcbw = (section_w - 8) // 2
-    tcbh, tcgap, tc_cols = 26, 3, 2
+    y += lbl_gap
+    tcbw = (section_w - int(8 * sc)) // 2
+    tcbh = bh
+    tcgap = gap
+    tc_cols = 2
     game.tc_rects = []
     for ti, (tname, _, _) in enumerate(TIME_CONTROLS):
         tr_row, tc_col = ti // tc_cols, ti % tc_cols
-        tcr = pygame.Rect(sx + tc_col * (tcbw + 8), y + tr_row * (tcbh + tcgap), tcbw, tcbh)
+        tcr = pygame.Rect(sx + tc_col * (tcbw + int(8 * sc)), y + tr_row * (tcbh + tcgap), tcbw, tcbh)
         game.tc_rects.append((tcr, ti))
         sel = game.tc_idx == ti
         hover = tcr.collidepoint(mx, my)
@@ -770,26 +767,26 @@ def draw_menu(game, screen):
         screen.blit(t, t.get_rect(center=tcr.center))
 
     tc_rows = (len(TIME_CONTROLS) + tc_cols - 1) // tc_cols
-    y += tc_rows * (tcbh + tcgap) + 14
+    y += tc_rows * (tcbh + tcgap) + sec_gap
 
     # === BOARD THEME + COACH (inline row) ===
     screen.blit(F.FONT_B.render("Theme", True, (200, 200, 205)), (sx, y))
-    y += 22
+    y += lbl_gap
     game.theme_rects = []
-    thw = 36
+    thw = int(36 * sc)
+    thh = int(24 * sc)
     for i, tn in enumerate(THEME_NAMES):
         tl, td = THEMES[tn]
-        tr = pygame.Rect(sx + i * (thw + 6), y, thw, 24)
+        tr = pygame.Rect(sx + i * (thw + int(6 * sc)), y, thw, thh)
         game.theme_rects.append((tr, tn))
         sel = game.theme_name == tn
-        pygame.draw.rect(screen, tl, (tr.x, tr.y, thw // 2, 24), border_radius=3)
-        pygame.draw.rect(screen, td, (tr.x + thw // 2, tr.y, thw // 2, 24), border_radius=3)
+        pygame.draw.rect(screen, tl, (tr.x, tr.y, thw // 2, thh), border_radius=3)
+        pygame.draw.rect(screen, td, (tr.x + thw // 2, tr.y, thw // 2, thh), border_radius=3)
         if sel:
             pygame.draw.rect(screen, (81, 190, 95), tr, 2, border_radius=4)
 
-    # Coach toggle on same row, right-aligned
-    coach_w = 110
-    coach_r = pygame.Rect(sx + section_w - coach_w, y - 2, coach_w, 28)
+    coach_w = int(110 * sc)
+    coach_r = pygame.Rect(sx + section_w - coach_w, y - int(2 * sc), coach_w, thh + int(4 * sc))
     game.coach_rect = coach_r
     coach_on = game.menu_coach
     hover_c = coach_r.collidepoint(mx, my)
@@ -805,18 +802,14 @@ def draw_menu(game, screen):
     screen.blit(ct, ct.get_rect(center=coach_r.center))
 
     # --- PLAY BUTTON ---
-    btn_w = min(280, section_w)
-    btn_h = 52
-    btn_y = H - btn_h - 18
-    pr = pygame.Rect(cx - btn_w // 2, btn_y, btn_w, btn_h)
+    btn_w = min(int(280 * sc), section_w)
+    play_btn_h = int(52 * sc)
+    btn_y = H - play_btn_h - int(18 * sc)
+    pr = pygame.Rect(cx - btn_w // 2, btn_y, btn_w, play_btn_h)
     game.play_rect = pr
     hover_play = pr.collidepoint(mx, my)
     base = (55, 185, 80) if hover_play else (42, 160, 65)
     pygame.draw.rect(screen, base, pr, border_radius=10)
-    if hover_play:
-        glow = pygame.Surface((pr.w + 10, pr.h + 10), pygame.SRCALPHA)
-        pygame.draw.rect(glow, (81, 200, 100, 50), (0, 0, pr.w + 10, pr.h + 10), 3, border_radius=12)
-        screen.blit(glow, (pr.x - 5, pr.y - 5))
     pt = F.FONT_LG.render("Play", True, (255, 255, 255))
     screen.blit(pt, pt.get_rect(center=pr.center))
 
